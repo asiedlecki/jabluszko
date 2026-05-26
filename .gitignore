@@ -6,3 +6,10 @@ __pycache__/
 # Python virtual environment
 .venv/
 poetry.toml
+
+# Ignore data
+data/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
