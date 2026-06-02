@@ -2,6 +2,7 @@ BEGIN;
 
 -- Enable the PostGIS extension (requires superuser privileges)
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ==========================================
 -- 1. DICTIONARY TABLES
@@ -109,5 +110,56 @@ DELIMITER ',' CSV HEADER;
 COPY SHOPPING_MALL (store_id, mall_id, mall_name, distance_km)
 FROM '/data/shopping_mall.csv'
 DELIMITER ',' CSV HEADER;
+
+-- =======================================
+-- CREATE VECTORS
+-- =======================================
+
+CREATE OR REPLACE VIEW v_store_market_fingerprint AS
+WITH raw_metrics AS (
+    SELECT 
+        s.store_id,
+        c.population AS city_pop,
+        s.kpi_competition_score AS comp_score,
+        s.kpi_mall_attractiveness_score AS mall_score,
+        -- Aggregate competitor data per store
+        COALESCE(COUNT(comp.competitor_id), 0) AS comp_count,
+        COALESCE(SUM(comp.competitor_sales_area), 0) AS total_comp_area,
+        COALESCE(MIN(comp.distance_km), 10.0) AS closest_comp_dist, -- 10km max default if none (TBC)
+		COALESCE(COUNT(*) FILTER (WHERE comp.distance_km < 0.2), 0) AS comp_count_200m_radius
+    FROM STORE s
+    JOIN CITY c ON s.city_name = c.city_name
+    LEFT JOIN COMPETITION comp ON s.store_id = comp.store_id
+    GROUP BY s.store_id, c.population, s.kpi_competition_score, s.kpi_mall_attractiveness_score
+),
+stats AS (
+    -- Get Min/Max for Normalization
+    SELECT 
+        MIN(city_pop) as min_cp, MAX(city_pop) as max_cp,
+        MIN(comp_count) as min_cc, MAX(comp_count) as max_cc,
+        MIN(total_comp_area) as min_ca, MAX(total_comp_area) as max_ca,
+        MIN(closest_comp_dist) as min_cd, MAX(closest_comp_dist) as max_cd,
+		MIN(comp_count_200m_radius) as min_c200, MAX(comp_count_200m_radius) as max_c200
+    FROM raw_metrics
+),
+normalized AS (
+    SELECT 
+        rm.store_id,
+        -- Normalize all values between 0 and 1
+        (rm.city_pop - s.min_cp) / NULLIF(s.max_cp - s.min_cp, 0) AS n_pop,
+        rm.comp_score / 1.0 AS n_comp_score, -- Assuming scores are in range 0-1
+        rm.mall_score / 1.0 AS n_mall_score,
+        (rm.comp_count - s.min_cc) / NULLIF(s.max_cc - s.min_cc, 0) AS n_comp_count,
+        (rm.total_comp_area - s.min_ca) / NULLIF(s.max_ca - s.min_ca, 0) AS n_comp_area,
+        (rm.closest_comp_dist - s.min_cd) / NULLIF(s.max_cd - s.min_cd, 0) AS n_comp_dist,
+		(rm.comp_count_200m_radius - s.min_c200) / NULLIF(s.max_c200 - s.min_c200, 0) AS n_comp_count_200m
+    FROM raw_metrics rm, stats s
+)
+SELECT 
+    store_id,
+    -- Construct a 6-Dimensional Environmental Vector
+    ARRAY[n_pop, n_comp_score, n_mall_score, n_comp_count, n_comp_area, n_comp_dist, n_comp_count_200m]::vector(7) AS market_vector
+FROM normalized
+LIMIT 5;
 
 COMMIT;

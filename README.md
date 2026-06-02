@@ -11,6 +11,23 @@
 http://localhost:5050/login (Credentials are stored in the .env file.)
 Add New Server with user credentials from the .env file.
 
+## Example queries
+### Predicting Sales for a New Store (Rollout)
+```sql
+-- Based on context & competition embedding
+-- find best 3 matches
+SELECT 
+    v.store_id,
+    actual_store.kpi_revenue AS historical_annual_revenue,
+    actual_store.kpi_footfall AS expected_footfall,
+    -- Euclidean distance: closer to 0 means a more identical competitive environment
+    (v.market_vector <-> '[0.45, 0.70, 0.20, 0.30, 0.55, 0.12, 0.4]'::vector) AS environmental_distance
+FROM v_store_market_fingerprint v
+JOIN STORE actual_store ON v.store_id = actual_store.store_id
+ORDER BY environmental_distance ASC
+LIMIT 3;
+```
+
 ## Local Python Development Setup
 
 Follow these steps to set up your local virtual environment:
