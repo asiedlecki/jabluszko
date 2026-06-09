@@ -16,12 +16,13 @@ Add New Server with user credentials from the .env file.
 
 Based on context & competition embedding find best 3 matches.
 Vector's components (normalized): 
-1. competition score,
-2. mall score,
-3. competition count,
-4. competition_sales_area, 
-5. closest competitor distance, 
-6. competition in 2km radius count
+1. city population,
+2. competition score,
+3. mall score,
+4. competition count,
+5. competition_sales_area, 
+6. closest competitor distance, 
+7. competition in 2km radius count
 #### Option 1: Vector components provided manually.
 For testing - unrealistic in real life scenario.
 ```sql
@@ -30,7 +31,7 @@ SELECT
     actual_store.kpi_revenue AS historical_annual_revenue,
     actual_store.kpi_footfall AS expected_footfall,
     -- Euclidean distance: closer to 0 means a more identical competitive environment
-    (v.market_vector <-> '[0.45, 0.70, 0.20, 0.30, 0.55, 0.12, 0.4]'::vector) AS environmental_distance
+    (v.vector <-> '[0.45, 0.70, 0.20, 0.30, 0.55, 0.12, 0.4]'::vector) AS environmental_distance
 FROM v_store_market_fingerprint v
 JOIN STORE actual_store ON v.store_id = actual_store.store_id
 ORDER BY environmental_distance ASC
@@ -47,7 +48,7 @@ SELECT
     existing_store.kpi_footfall AS benchmark_annual_footfall,
     existing_store.kpi_basket_size AS benchmark_basket_size,
     -- Calculate similarity distance (0.00 means identical surroundings)
-    (prospective.market_vector <-> lookalike.market_vector) AS environmental_distance
+    (prospective.vector <-> lookalike.vector) AS environmental_distance
 FROM v_store_market_fingerprint prospective
 -- Self-join the view to match the new site against everything else
 JOIN v_store_market_fingerprint lookalike ON prospective.store_id != lookalike.store_id

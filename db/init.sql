@@ -158,7 +158,67 @@ normalized AS (
 SELECT 
     store_id,
     -- Construct a 6-Dimensional Environmental Vector
-    ARRAY[n_pop, n_comp_score, n_mall_score, n_comp_count, n_comp_area, n_comp_dist, n_comp_count_200m]::vector(7) AS market_vector
+    ARRAY[n_pop, n_comp_score, n_mall_score, n_comp_count, n_comp_area, n_comp_dist, n_comp_count_200m]::public.vector(7) AS vector
 FROM normalized;
+
+CREATE OR REPLACE VIEW v_store_complete_performance_fingerprint AS
+WITH stats AS (
+    -- Step A: Gather min and max bounds for all KPI columns across the fleet
+    SELECT
+        MIN(sm_pieczywo) AS min_piecz, MAX(sm_pieczywo) AS max_piecz,
+        MIN(sm_warzywa_i_owoce) AS min_warzyw, MAX(sm_warzywa_i_owoce) AS max_warzyw,
+        MIN(sm_slodycze_i_slone_przekaski) AS min_slod, MAX(sm_slodycze_i_slone_przekaski) AS max_slod,
+        MIN(sm_piwo) AS min_piwo, MAX(sm_piwo) AS max_piwo,
+        MIN(sm_alkohole_mocne) AS min_alko, MAX(sm_alkohole_mocne) AS max_alko,
+        MIN(sm_papierosy) AS min_papierosy, MAX(sm_papierosy) AS max_papierosy,
+        MIN(sm_fast_food) AS min_fast, MAX(sm_fast_food) AS max_fast,
+        MIN(sm_woda_i_napoje_niealkoholowe) AS min_woda, MAX(sm_woda_i_napoje_niealkoholowe) AS max_woda,
+        MIN(sm_sery_i_wedliny) AS min_sery, MAX(sm_sery_i_wedliny) AS max_sery,
+        MIN(kpi_footfall) AS min_ff, MAX(kpi_footfall) AS max_ff,
+        MIN(kpi_basket_size) AS min_bs, MAX(kpi_basket_size) AS max_bs,
+        MIN(kpi_conversion_rate) AS min_cr, MAX(kpi_conversion_rate) AS max_cr,
+        MIN(kpi_transactions) AS min_tx, MAX(kpi_transactions) AS max_tx,
+        MIN(kpi_revenue) AS min_rev, MAX(kpi_revenue) AS max_rev,
+        MIN(kpi_margin_rate) AS min_mr, MAX(kpi_margin_rate) AS max_mr,
+        MIN(kpi_margin) AS min_mrg, MAX(kpi_margin) AS max_mrg,
+        MIN(kpi_competition_score) AS min_cs, MAX(kpi_competition_score) AS max_cs
+    FROM STORE
+),
+normalized_profile AS (
+    -- Step B: Keep product shares intact, apply Min-Max math to KPIs
+    SELECT
+        s.store_id,
+        -- Dims 1-9 (Product Assortment)
+        (s.sm_pieczywo - st.min_piecz) / NULLIF(st.max_piecz - st.min_piecz, 0) AS n_pieczywo,
+        (s.sm_warzywa_i_owoce - st.min_warzyw) / NULLIF(st.max_warzyw - st.min_warzyw, 0) AS n_warzywa_i_owoce,
+        (s.sm_slodycze_i_slone_przekaski - st.min_slod) / NULLIF(st.max_slod - st.min_slod, 0) AS n_slodycze_i_slone_przekaski,
+        (s.sm_piwo - st.min_piwo) / NULLIF(st.max_piwo - st.min_piwo, 0) AS n_piwo,
+        (s.sm_alkohole_mocne - st.min_alko) / NULLIF(st.max_alko - st.min_alko, 0) AS n_alkohole_mocne,
+        (s.sm_papierosy - st.min_papierosy) / NULLIF(st.max_papierosy - st.min_papierosy, 0) AS n_papierosy,
+        (s.sm_fast_food - st.min_fast) / NULLIF(st.max_fast - st.min_fast, 0) AS n_fast_food,
+        (s.sm_woda_i_napoje_niealkoholowe - st.min_woda) / NULLIF(st.max_woda - st.min_woda, 0) AS n_woda_i_napoje_niealkoholowe,
+        (s.sm_sery_i_wedliny - st.min_sery) / NULLIF(st.max_sery - st.min_sery, 0) AS n_sery_i_wedliny,
+        -- Dims 10-17 (Normalized Performance Metrics)
+        (s.kpi_footfall - st.min_ff) / NULLIF(st.max_ff - st.min_ff, 0) AS n_footfall,
+        (s.kpi_basket_size - st.min_bs) / NULLIF(st.max_bs - st.min_bs, 0) AS n_basket,
+        (s.kpi_conversion_rate - st.min_cr) / NULLIF(st.max_cr - st.min_cr, 0) AS n_conversion,
+        (s.kpi_transactions - st.min_tx) / NULLIF(st.max_tx - st.min_tx, 0) AS n_tx,
+        (s.kpi_revenue - st.min_rev) / NULLIF(st.max_rev - st.min_rev, 0) AS n_revenue,
+        (s.kpi_margin_rate - st.min_mr) / NULLIF(st.max_mr - st.min_mr, 0) AS n_margin_rate,
+        (s.kpi_margin - st.min_mrg) / NULLIF(st.max_mrg - st.min_mrg, 0) AS n_margin,
+        (s.kpi_competition_score - st.min_cs) / NULLIF(st.max_cs - st.min_cs, 0) AS n_comp_score
+    FROM STORE s, stats st
+)
+SELECT
+    store_id,
+    -- Construct the unified 17-Dimensional Performance Vector
+    ARRAY[
+        n_pieczywo, n_warzywa_i_owoce, n_slodycze_i_slone_przekaski,
+        n_piwo, n_alkohole_mocne, n_papierosy, n_fast_food,
+        n_woda_i_napoje_niealkoholowe, n_sery_i_wedliny,
+        n_footfall, n_basket, n_conversion, n_tx,
+        n_revenue, n_margin_rate, n_margin, n_comp_score
+    ]::public.vector(17) AS vector
+FROM normalized_profile;
 
 COMMIT;
