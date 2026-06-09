@@ -11,6 +11,10 @@
 http://localhost:5050/login (Credentials are stored in the .env file.)
 Add New Server with user credentials from the .env file.
 
+## Vector views
+- v_store_market_fingerprint - competition vector, for screening stores for most similar stores in terms of environment and competition,
+- v_store_complete_performance_fingerprint - performance vector, for screening stores for most similar stores in terms of performance and sales mix.
+
 ## Example queries
 ### Predicting Sales for a New Store (Rollout)
 
