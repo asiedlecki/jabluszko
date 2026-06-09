@@ -159,7 +159,6 @@ SELECT
     store_id,
     -- Construct a 6-Dimensional Environmental Vector
     ARRAY[n_pop, n_comp_score, n_mall_score, n_comp_count, n_comp_area, n_comp_dist, n_comp_count_200m]::vector(7) AS market_vector
-FROM normalized
-LIMIT 5;
+FROM normalized;
 
 COMMIT;
