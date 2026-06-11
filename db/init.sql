@@ -29,13 +29,13 @@ CREATE TABLE STORE (
     city_name VARCHAR(30) NOT NULL REFERENCES CITY(city_name) ON DELETE RESTRICT,
     -- PostGIS Point type using WGS84 (latitude/longitude in degrees, distances natively in meters)
     geom_location GEOGRAPHY(Point, 4326) NOT NULL,
-    competition_radius_km NUMERIC(4,2) NULL, -- Primarily for your own stores,
+    competition_radius_km NUMERIC(4,2) NULL,
     kpi_footfall INT NOT NULL,
     kpi_basket_size FLOAT NOT NULL,
     kpi_conversion_rate FLOAT NOT NULL,
     kpi_transactions INT NOT NULL,
     kpi_revenue NUMERIC(9,2) NOT NULL,
-    kpi_margin_rate FLOAT NOT NULL, -- why not calculate it in a view instead of hardcoding
+    kpi_margin_rate FLOAT NOT NULL, -- IDEA: Why not calculate it in a view instead of hardcoding
     kpi_margin NUMERIC(9,2) NOT NULL,
     kpi_competition_score FLOAT NOT NULL,
     kpi_mall_attractiveness_score FLOAT NOT NULL,
@@ -61,10 +61,10 @@ CREATE TABLE COMPETITION (
 
 CREATE TABLE SHOPPING_MALL (
     store_id VARCHAR(10) NOT NULL REFERENCES STORE(store_id) ON DELETE RESTRICT,
-    mall_id INT NOT NULL,
+    mall_id INT NOT NULL, -- IDEA: We can get rid of mall_id, as mall_ids are totally made up
     mall_name VARCHAR(50) NOT NULL,
     distance_km NUMERIC(6,3) NOT NULL,
-    PRIMARY KEY (store_id, mall_id)
+    PRIMARY KEY (store_id, mall_id) -- IDEA: Can be replaced with pair (store_id, mall_name)
 );
 
 -- ==========================================
