@@ -124,7 +124,9 @@ WITH raw_metrics AS (
         s.kpi_mall_attractiveness_score AS mall_score,
         -- Aggregate competitor data per store
         COALESCE(COUNT(comp.competitor_id), 0) AS comp_count,
-        COALESCE(SUM(comp.competitor_sales_area), 0) AS total_comp_area,
+        COALESCE(MIN(comp.competitor_sales_area), 0) AS min_comp_area,
+        COALESCE(PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY competitor_sales_area), 0) AS median_comp_area,
+        COALESCE(MAX(comp.competitor_sales_area), 0) AS max_comp_area,
         COALESCE(MIN(comp.distance_km), 10.0) AS closest_comp_dist, -- 10km max default if none (TBC)
 		COALESCE(COUNT(*) FILTER (WHERE comp.distance_km < 0.2), 0) AS comp_count_200m_radius
     FROM STORE s
@@ -137,7 +139,9 @@ stats AS (
     SELECT 
         MIN(city_pop) as min_cp, MAX(city_pop) as max_cp,
         MIN(comp_count) as min_cc, MAX(comp_count) as max_cc,
-        MIN(total_comp_area) as min_ca, MAX(total_comp_area) as max_ca,
+        MIN(min_comp_area) as min_min_ca, MAX(min_comp_area) as max_min_ca,
+        MIN(median_comp_area) as min_median_ca, MAX(median_comp_area) as max_median_ca,
+        MIN(max_comp_area) as min_max_ca, MAX(max_comp_area) as max_max_ca,
         MIN(closest_comp_dist) as min_cd, MAX(closest_comp_dist) as max_cd,
 		MIN(comp_count_200m_radius) as min_c200, MAX(comp_count_200m_radius) as max_c200
     FROM raw_metrics
@@ -150,15 +154,17 @@ normalized AS (
         rm.comp_score / 1.0 AS n_comp_score, -- Assuming scores are in range 0-1
         rm.mall_score / 1.0 AS n_mall_score,
         (rm.comp_count - s.min_cc) / NULLIF(s.max_cc - s.min_cc, 0) AS n_comp_count,
-        (rm.total_comp_area - s.min_ca) / NULLIF(s.max_ca - s.min_ca, 0) AS n_comp_area,
+        (rm.min_comp_area - s.min_min_ca) / NULLIF(s.max_min_ca - s.min_min_ca, 0) AS n_min_comp_area,
+        (rm.median_comp_area - s.min_median_ca) / NULLIF(s.max_median_ca - s.min_median_ca, 0) AS n_median_comp_area,
+        (rm.max_comp_area - s.min_max_ca) / NULLIF(s.max_max_ca - s.min_max_ca, 0) AS n_max_comp_area,
         (rm.closest_comp_dist - s.min_cd) / NULLIF(s.max_cd - s.min_cd, 0) AS n_comp_dist,
 		(rm.comp_count_200m_radius - s.min_c200) / NULLIF(s.max_c200 - s.min_c200, 0) AS n_comp_count_200m
     FROM raw_metrics rm, stats s
 )
 SELECT 
     store_id,
-    -- Construct a 6-Dimensional Environmental Vector
-    ARRAY[n_pop, n_comp_score, n_mall_score, n_comp_count, n_comp_area, n_comp_dist, n_comp_count_200m]::public.vector(7) AS vector
+    ARRAY[n_pop, n_comp_score, n_mall_score, n_comp_count, n_min_comp_area, n_median_comp_area, n_max_comp_area,
+    n_comp_dist, n_comp_count_200m]::public.vector(9) AS vector
 FROM normalized;
 
 CREATE OR REPLACE VIEW v_store_complete_performance_fingerprint AS

@@ -9,7 +9,7 @@
 
 ## Enter pgAdmin
 http://localhost:5050/login (Credentials are stored in the .env file.)
-Add New Server with user credentials from the .env file.
+Authenticate in the Local server with user credentials from the .env file.
 
 ## Vector views
 - v_store_market_fingerprint - competition vector, for screening stores for most similar stores in terms of environment and competition,
@@ -24,9 +24,11 @@ Vector's components (normalized):
 2. competition score,
 3. mall score,
 4. competition count,
-5. competition_sales_area, 
-6. closest competitor distance, 
-7. competition in 2km radius count
+5. min_competition_sales_area, 
+6. median_competition_sales_area, 
+7. max_competition_sales_area, 
+8. closest competitor distance, 
+9. count of competitors in 200 m radius
 #### Option 1: Vector components provided manually.
 For testing - unrealistic in real life scenario.
 ```sql
@@ -35,7 +37,7 @@ SELECT
     actual_store.kpi_revenue AS historical_annual_revenue,
     actual_store.kpi_footfall AS expected_footfall,
     -- Euclidean distance: closer to 0 means a more identical competitive environment
-    (v.vector <-> '[0.45, 0.70, 0.20, 0.30, 0.55, 0.12, 0.4]'::vector) AS environmental_distance
+    (v.vector <-> '[0.45, 0.70, 0.20, 0.30, 0.25, 0.55, 0.7, 0.12, 0.4]'::vector) AS environmental_distance
 FROM v_store_market_fingerprint v
 JOIN STORE actual_store ON v.store_id = actual_store.store_id
 ORDER BY environmental_distance ASC
