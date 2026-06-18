@@ -9,7 +9,62 @@
 
 ## Enter pgAdmin
 http://localhost:5050/login (Credentials are stored in the .env file.)
-Add New Server with user credentials from the .env file.
+Authenticate in the Local server with user credentials from the .env file.
+
+## Vector views
+- v_store_market_fingerprint - competition vector, for screening stores for most similar stores in terms of environment and competition,
+- v_store_complete_performance_fingerprint - performance vector, for screening stores for most similar stores in terms of performance and sales mix.
+
+## Example queries
+### Predicting Sales for a New Store (Rollout)
+
+Based on context & competition embedding find best 3 matches.
+Vector's components (normalized): 
+1. city population,
+2. competition score,
+3. mall score,
+4. competition count,
+5. min_competition_sales_area, 
+6. median_competition_sales_area, 
+7. max_competition_sales_area, 
+8. closest competitor distance, 
+9. count of competitors in 200 m radius
+#### Option 1: Vector components provided manually.
+For testing - unrealistic in real life scenario.
+```sql
+SELECT 
+    v.store_id,
+    actual_store.kpi_revenue AS historical_annual_revenue,
+    actual_store.kpi_footfall AS expected_footfall,
+    -- Euclidean distance: closer to 0 means a more identical competitive environment
+    (v.vector <-> '[0.45, 0.70, 0.20, 0.30, 0.25, 0.55, 0.7, 0.12, 0.4]'::vector) AS environmental_distance
+FROM v_store_market_fingerprint v
+JOIN STORE actual_store ON v.store_id = actual_store.store_id
+ORDER BY environmental_distance ASC
+LIMIT 3;
+```
+#### Option 2: Vector components pre-calculated in a view.
+```sql
+SELECT 
+    prospective.store_id AS prospective_store_id,
+    existing_store.store_id AS lookalike_store_id,
+    existing_store.city_name AS lookalike_city,
+    -- Pull real performance benchmarks from the matching active store
+    existing_store.kpi_revenue AS benchmark_annual_revenue,
+    existing_store.kpi_footfall AS benchmark_annual_footfall,
+    existing_store.kpi_basket_size AS benchmark_basket_size,
+    -- Calculate similarity distance (0.00 means identical surroundings)
+    (prospective.vector <-> lookalike.vector) AS environmental_distance
+FROM v_store_market_fingerprint prospective
+-- Self-join the view to match the new site against everything else
+JOIN v_store_market_fingerprint lookalike ON prospective.store_id != lookalike.store_id
+-- Join the raw STORE table to filter out other unlaunched stores and pull metrics
+JOIN STORE existing_store ON lookalike.store_id = existing_store.store_id
+WHERE prospective.store_id = 'JBL001'           -- New store's ID
+  AND existing_store.kpi_revenue > 0            -- Ensures we only compare against open, active stores
+ORDER BY environmental_distance ASC
+LIMIT 3;
+```
 
 ## Local Python Development Setup
 

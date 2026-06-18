@@ -13,3 +13,6 @@ data/
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
+# PyCharm files
+.idea/
+
