@@ -33,7 +33,24 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./pgadmin/servers.json:/pgadmin4/servers.json
-      
+
+  fastapi_app:
+    build:
+      context: .
+      dockerfile: ./fastapi_app/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
+    volumes:
+      - .:/app  # Montuje cały projekt do /app
+    working_dir: /app/fastapi_app  # Wymusza na kontenerze start z tego podkatalogu
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   pgadmin_data:
