@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict
-import asyncpg
+# from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Dict, Any
 from database import db
+from queries import similarity_query
 
 app = FastAPI(title="Jabłuszko")
 
@@ -31,7 +31,33 @@ async def get_all_stores_from_db():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Błąd bazy danych: {str(e)}")
 
-#
-# @app.get("/items/{item_id}")
-# async def read_item(item_id: int, q: str | None = None):
-#     return {"item_id": item_id, "q": q}
+
+@app.get("/api/similarity/market", response_model=List[Dict[str, Any]])
+async def get_similar_stores(
+        store_id: str = Query(..., description="ID sklepu, do którego szukamy podobnych (np. JBL221)"),
+        n: int = Query(10, ge=1, le=50, description="Liczba podobnych sklepów do zwrócenia")
+):
+    """
+    Zwraca 'n' najbardziej podobnych sklepów według otoczenia konkurencyjnego.
+    """
+    if not db.pool:
+        raise HTTPException(status_code=500, detail="Brak połączenia z bazą danych")
+
+    query = similarity_query(embedding_version='v_store_market_fingerprint')
+
+    try:
+        async with db.pool.acquire() as connection:
+            rows = await connection.fetch(query, store_id, n)
+
+            return [
+                {
+                    "store_id": row["lookalike_store_id"],
+                    "city": row["lookalike_city"],
+                    "kpi_revenue": row["benchmark_annual_revenue"],
+                    "kpi_footfall": row["benchmark_annual_footfall"],
+                    "kpi_basket_size": row["benchmark_basket_size"],
+                    "similarity": row["similarity"],
+                } for row in rows
+            ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Błąd podczas obliczania podobieństwa v1: {str(e)}")
