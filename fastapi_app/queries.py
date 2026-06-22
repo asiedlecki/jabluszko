@@ -18,7 +18,7 @@ def similarity_query(embedding_version: str) -> str:
         JOIN {embedding_version} lookalike ON prospective.store_id != lookalike.store_id
         -- Join the raw STORE table to filter out other unlaunched stores and pull metrics
         JOIN STORE existing_store ON lookalike.store_id = existing_store.store_id
-        WHERE prospective.store_id = $1 -- New store's ID
+        WHERE prospective.store_id = $1 -- Store's ID
           AND existing_store.kpi_revenue > 0 -- Ensures we only compare against open, active stores
         ORDER BY similarity DESC
         LIMIT $2;

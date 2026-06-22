@@ -15,7 +15,7 @@ async def startup():
 async def shutdown():
     await db.disconnect()
 
-@app.get("/api/stores")
+@app.get("/api/all_db_stores")
 async def get_all_stores_from_db():
     if not db.pool:
         raise HTTPException(status_code=500, detail="Brak połączenia z bazą danych")
@@ -26,13 +26,13 @@ async def get_all_stores_from_db():
             rows = await connection.fetch(query)
 
             # asyncpg zwraca obiekty typu Record, które łatwo rzutujemy na słownik Pythonowy
-            return [row["store_id"] for row in rows][-3:]
+            return [row["store_id"] for row in rows]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Błąd bazy danych: {str(e)}")
 
 
-@app.get("/api/similarity/market", response_model=List[Dict[str, Any]])
+@app.get("/api/similarity", response_model=List[Dict[str, Any]])
 async def get_similar_stores(
         store_id: str = Query(..., description="ID sklepu, do którego szukamy podobnych (np. JBL221)"),
         n: int = Query(10, ge=1, le=50, description="Liczba podobnych sklepów do zwrócenia")
