@@ -227,4 +227,65 @@ SELECT
     ]::public.vector(17) AS vector
 FROM normalized_profile;
 
+CREATE OR REPLACE VIEW v_store_competition_summary AS
+
+WITH competition_metrics AS (
+  SELECT
+    s.store_id,
+    s.kpi_competition_score,
+    s.kpi_mall_attractiveness_score,
+
+    -- distances (competition)
+    MIN(cmp.distance_km) AS comp_min_dist,
+    MAX(cmp.distance_km) AS comp_max_dist,
+    PERCENTILE_CONT(0.5)
+      WITHIN GROUP (ORDER BY cmp.distance_km) AS comp_median_dist,
+
+    -- counts by type
+    COUNT(*) FILTER (WHERE ch.chain_type = 'discount') AS discount,
+    COUNT(*) FILTER (WHERE ch.chain_type = 'non_discount_chain') AS non_discount_chain,
+    COUNT(*) FILTER (WHERE ch.chain_type = 'independent') AS independent,
+    COUNT(*) FILTER (WHERE ch.chain_type = 'drugstore') AS drugstore
+
+  FROM store s
+  JOIN competition cmp ON s.store_id = cmp.store_id
+  JOIN chain ch ON cmp.chain_id = ch.chain_id
+  GROUP BY s.store_id
+),
+
+shopping_mall_metrics AS (
+  SELECT
+    store_id,
+    COUNT(*) AS mall_count,
+    MIN(distance_km) AS mall_min_dist,
+    MAX(distance_km) AS mall_max_dist,
+    PERCENTILE_CONT(0.5)
+      WITHIN GROUP (ORDER BY distance_km) AS mall_median_dist
+  FROM shopping_mall
+  GROUP BY store_id
+)
+
+SELECT
+  c.store_id,
+  c.kpi_competition_score,
+  c.kpi_mall_attractiveness_score,
+
+  -- competition
+  c.comp_min_dist,
+  c.comp_max_dist,
+  c.comp_median_dist,
+  c.discount,
+  c.non_discount_chain,
+  c.independent,
+  c.drugstore,
+
+  COALESCE(m.mall_count, 0) AS mall_count, -- malls (LEFT JOIN → some stores may have none)
+  m.mall_min_dist,
+  m.mall_max_dist,
+  m.mall_median_dist
+
+FROM competition_metrics c
+LEFT JOIN shopping_mall_metrics m
+  ON c.store_id = m.store_id;
+
 COMMIT;
