@@ -1,3 +1,17 @@
+# Store Similarity Finder
+
+An AI-powered backend service built with **FastAPI** and **PostgreSQL** designed to identify and analyze lookalike retail stores based on two distinct operational dimensions:
+
+* **Competitive Landscape:** Finds stores operating in similar market environments and facing comparable competitor profiles.
+* **Performance Metrics:** Matches stores with similar financial and operational health, analyzing data points such as sales volume, profit margins, and more.
+
+By leveraging **vector embeddings** and **Euclidean distance ($L_2$ distance)** calculations directly within the database, the system provides high-performance, multi-dimensional similarity mapping to help businesses benchmark performance, optimize strategies, and discover market insights.
+
+### Key Tech Stack
+* **Framework:** FastAPI (Python)
+* **Database:** PostgreSQL (with vector similarity search)
+* **Methodology:** Vector Embeddings & Euclidean Distance Metrics
+
 ## Spin Up The Docker Image
 ```bash
    docker compose up -d --build --force-recreate
