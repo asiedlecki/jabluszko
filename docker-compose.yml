@@ -3,10 +3,6 @@ services:
     build: ./db
     container_name: postgres_db
     restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./data:/data
