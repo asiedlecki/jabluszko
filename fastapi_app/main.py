@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from contextlib import asynccontextmanager
-# from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
 from database import db
 from queries import similarity_query, QUERY_STORE_DETAILS_QUERY
@@ -14,6 +14,18 @@ async def lifespan(app: FastAPI):
 
     await db.disconnect()
 app = FastAPI(title="Jabłuszko", lifespan=lifespan)
+
+origins = [
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/api/all_db_stores")
 async def get_all_stores_from_db():
