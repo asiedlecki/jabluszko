@@ -1,3 +1,17 @@
+# Store Similarity Finder
+
+An AI-powered backend service built with **FastAPI** and **PostgreSQL** designed to identify and analyze lookalike retail stores based on two distinct operational dimensions:
+
+* **Competitive Landscape:** Finds stores operating in similar market environments and facing comparable competitor profiles.
+* **Performance Metrics:** Matches stores with similar financial and operational health, analyzing data points such as sales volume, profit margins, and more.
+
+By leveraging **vector embeddings** and **Euclidean distance ($L_2$ distance)** calculations directly within the database, the system provides high-performance, multi-dimensional similarity mapping to help businesses benchmark performance, optimize strategies, and discover market insights.
+
+### Key Tech Stack
+* **Framework:** FastAPI (Python)
+* **Database:** PostgreSQL (with vector similarity search)
+* **Methodology:** Vector Embeddings & Euclidean Distance Metrics
+
 ## Spin Up The Docker Image
 ```bash
    docker compose up -d --build --force-recreate
@@ -6,6 +20,9 @@
 ```bash
    docker compose down -v
 ```
+
+## Test API endpoints
+http://localhost:8000/docs
 
 ## Enter pgAdmin
 http://localhost:5050/login (Credentials are stored in the .env file.)
@@ -53,16 +70,15 @@ SELECT
     existing_store.kpi_revenue AS benchmark_annual_revenue,
     existing_store.kpi_footfall AS benchmark_annual_footfall,
     existing_store.kpi_basket_size AS benchmark_basket_size,
-    -- Calculate similarity distance (0.00 means identical surroundings)
-    (prospective.vector <-> lookalike.vector) AS environmental_distance
+    1 - (prospective.vector <-> lookalike.vector) AS similarity -- 1 for exactly the same stores, -1 for completely different stores
 FROM v_store_market_fingerprint prospective
 -- Self-join the view to match the new site against everything else
 JOIN v_store_market_fingerprint lookalike ON prospective.store_id != lookalike.store_id
 -- Join the raw STORE table to filter out other unlaunched stores and pull metrics
 JOIN STORE existing_store ON lookalike.store_id = existing_store.store_id
-WHERE prospective.store_id = 'JBL001'           -- New store's ID
+WHERE prospective.store_id = 'JBL001'           -- Store's ID
   AND existing_store.kpi_revenue > 0            -- Ensures we only compare against open, active stores
-ORDER BY environmental_distance ASC
+ORDER BY similarity DESC
 LIMIT 3;
 ```
 
