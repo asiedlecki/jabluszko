@@ -22,11 +22,11 @@ async def get_all_stores_from_db():
 
     try:
         async with db.pool.acquire() as connection:
-            query = "SELECT store_id FROM STORE ORDER BY store_id;"
+            query = "SELECT store_id, city_name FROM STORE ORDER BY store_id;"
             rows = await connection.fetch(query)
 
             # asyncpg zwraca obiekty typu Record, które łatwo rzutujemy na słownik Pythonowy
-            return [row["store_id"] for row in rows]
+            return [{"store_id": row["store_id"], "city_name": row["city_name"]} for row in rows]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Błąd bazy danych: {str(e)}")
