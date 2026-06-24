@@ -82,12 +82,49 @@ async def fetch_similar_stores_data(
                             "store_id": store["store_id"],
                             "city": store["city_name"],
                             "similarity": store["similarity"],
-                            **{col: query_store[col] for col in columns}
+                            **{col: store[col] for col in columns}
                         } for store in sim_stores
                     ]
                 }
             }
     except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Błąd podczas obliczania podobieństwa v1: {str(e)}")
+
+async def fetch_similar_stores_profile_data(
+        store_id: str = Query(..., description="ID sklepu, do którego szukamy podobnych (np. JBL221)"),
+        n: int = Query(10, ge=1, le=50, description="Liczba podobnych sklepów do zwrócenia"),
+        embedding_version: str = Query(description="Typ wektorów do porównania")
+):
+    """
+    Zwraca 'n' najbardziej podobnych sklepów według otoczenia konkurencyjnego.
+    """
+    if not db.pool:
+        raise HTTPException(status_code=500, detail="Brak połączenia z bazą danych")
+
+    query = similarity_query(embedding_version=embedding_version)
+
+    try:
+        async with db.pool.acquire() as connection:
+            query_store = await connection.fetchrow(QUERY_STORE_DETAILS_QUERY, store_id)
+            sim_stores = await connection.fetch(query, store_id, n)
+
+            columns = [
+                "store_id", "kpi_competition_score", "kpi_mall_attractiveness_score", "competition",
+                "comp_min_dist", "comp_max_dist", "comp_median_dist", "discount",
+                "non_discount_chain", "independent", "drugstore", "mall_count",
+                "m.mall_min_dist", "m.mall_max_dist", "m.mall_median_dist"
+            ]
+
+            return {
+                "data": {
+                    "results": [
+                        {
+                            **{col: store[col] for col in columns}
+                        } for store in sim_stores
+                    ]
+                }
+            }
+        except Exception as e:
         raise HTTPException(status_code=500, detail=f"Błąd podczas obliczania podobieństwa v1: {str(e)}")
 
 @app.get("/api/similar/market")
@@ -101,3 +138,15 @@ async def get_similar_performance_stores(
         store_id: str = Query(..., description="ID sklepu, do którego szukamy podobnych (np. JBL221)"),
         n: int = Query(10, ge=1, le=50, description="Liczba podobnych sklepów do zwrócenia")):
     return await fetch_similar_stores_data(store_id=store_id, n=n, embedding_version="v_store_complete_performance_fingerprint")
+
+@app.get("/api/similar/profile/market")
+async def get_profiles_of_similar_market_stores(
+        store_id: str = Query(..., description="ID sklepu, do którego szukamy podobnych (np. JBL221)"),
+        n: int = Query(10, ge=1, le=50, description="Liczba podobnych sklepów do zwrócenia")):
+    return await fetch_similar_stores_profile_data(store_id=store_id, n=n, embedding_version="v_store_market_fingerprint")
+
+@app.get("/api/similar/profile/performance")
+async def get_profiles_of_similar_performance_stores(
+        store_id: str = Query(..., description="ID sklepu, do którego szukamy podobnych (np. JBL221)"),
+        n: int = Query(10, ge=1, le=50, description="Liczba podobnych sklepów do zwrócenia")):
+    return await fetch_similar_stores_profile_data(store_id=store_id, n=n, embedding_version="v_store_complete_performance_fingerprint")
