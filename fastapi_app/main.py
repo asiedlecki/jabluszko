@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from contextlib import asynccontextmanager
-# from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
 from database import db
 from queries import similarity_query, QUERY_STORE_DETAILS_QUERY
@@ -15,6 +15,18 @@ async def lifespan(app: FastAPI):
     await db.disconnect()
 app = FastAPI(title="Jabłuszko", lifespan=lifespan)
 
+origins = [
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/api/all_db_stores")
 async def get_all_stores_from_db():
     if not db.pool:
@@ -22,11 +34,11 @@ async def get_all_stores_from_db():
 
     try:
         async with db.pool.acquire() as connection:
-            query = "SELECT store_id FROM STORE ORDER BY store_id;"
+            query = "SELECT store_id, city_name FROM STORE ORDER BY store_id;"
             rows = await connection.fetch(query)
 
             # asyncpg zwraca obiekty typu Record, które łatwo rzutujemy na słownik Pythonowy
-            return [row["store_id"] for row in rows]
+            return [{"store_id": row["store_id"], "city_name": row["city_name"]} for row in rows]
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Błąd bazy danych: {str(e)}")
