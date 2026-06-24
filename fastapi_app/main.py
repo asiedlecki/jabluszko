@@ -82,7 +82,7 @@ async def fetch_similar_stores_data(
                             "store_id": store["store_id"],
                             "city": store["city_name"],
                             "similarity": store["similarity"],
-                            **{col: query_store[col] for col in columns}
+                            **{col: store[col] for col in columns}
                         } for store in sim_stores
                     ]
                 }
