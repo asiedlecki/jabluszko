@@ -124,7 +124,7 @@ async def fetch_similar_stores_profile_data(
                     ]
                 }
             }
-        except Exception as e:
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"Błąd podczas obliczania podobieństwa v1: {str(e)}")
 
 @app.get("/api/similar/market")
