@@ -26,26 +26,33 @@ QUERY_STORE_DETAILS_QUERY = """
     WHERE s.store_id = $1
 """
 
-def similarity_query(embedding_version: str, competition_summary: bool=False) -> str:
+def similarity_query(competition_summary: bool=False) -> str:
     """
     Generuje zapytanie SQL dynamicznie podstawiając nazwę widoku z typem wektora.
     Wartości (store_id, limit) jako bezpieczne placeholdery $1 i $2.
     """
     if competition_summary:
         return f"""
-                    SELECT 
-                        existing_store.*,
-                        1 - (prospective.vector <-> lookalike.vector) AS similarity -- 1 for exactly the same stores, -1 for completely different stores
-                    FROM {embedding_version} prospective
-                    -- Self-join the view to match the new site against everything else
-                    JOIN {embedding_version} lookalike ON prospective.store_id != lookalike.store_id
-                    -- Join the raw STORE table to filter out other unlaunched stores and pull metrics
-                    JOIN v_store_competition_summary existing_store ON lookalike.store_id = existing_store.store_id
-                    WHERE prospective.store_id = $1 -- Store's ID
---                       AND existing_store.kpi_revenue > 0 -- Ensures we only compare against open, active stores
-                    ORDER BY similarity DESC
-                    LIMIT $2;
-                """
+            WITH nn AS (
+                SELECT 
+                    lookalike.store_id,
+                    1 - (prospective.vector <-> lookalike.vector) AS similarity
+                FROM v_store_market_fingerprint prospective
+                JOIN v_store_market_fingerprint lookalike ON TRUE
+                WHERE prospective.store_id = $1
+                ORDER BY prospective.vector <-> lookalike.vector
+                LIMIT $2 + 1  -- 1 self + 5 neighbors
+            )
+            SELECT comp.*
+            , nn.similarity
+            , s.city_name
+            --, c.city_type
+            , c.population
+            FROM v_store_competition_summary AS comp
+            JOIN nn ON comp.store_id = nn.store_id
+            JOIN store s ON nn.store_id = s.store_id
+            JOIN city c ON s.city_name = c.city_name;
+        """
     else:
         return f"""
             SELECT 
@@ -71,13 +78,13 @@ def similarity_query(embedding_version: str, competition_summary: bool=False) ->
                 existing_store.sm_woda_i_napoje_niealkoholowe,
                 existing_store.sm_sery_i_wedliny,
                 1 - (prospective.vector <-> lookalike.vector) AS similarity -- 1 for exactly the same stores, -1 for completely different stores
-            FROM {embedding_version} prospective
+            FROM v_store_complete_performance_fingerprint prospective
             -- Self-join the view to match the new site against everything else
-            JOIN {embedding_version} lookalike ON prospective.store_id != lookalike.store_id
+            JOIN v_store_complete_performance_fingerprint lookalike ON TRUE
             -- Join the raw STORE table to filter out other unlaunched stores and pull metrics
             JOIN STORE existing_store ON lookalike.store_id = existing_store.store_id
             WHERE prospective.store_id = $1 -- Store's ID
               AND existing_store.kpi_revenue > 0 -- Ensures we only compare against open, active stores
-            ORDER BY similarity DESC
-            LIMIT $2;
+            ORDER BY prospective.vector <-> lookalike.vector
+            LIMIT $2 + 1;
         """
